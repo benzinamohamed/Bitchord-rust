@@ -1,5 +1,5 @@
 use crate::ui::theme::BitChordTheme;
-use egui::{vec2, Color32, RichText, Rounding, ScrollArea, Stroke, Ui};
+use egui::{vec2, RichText, Rounding, ScrollArea, Stroke, Ui};
 
 pub struct SettingsView;
 
@@ -102,9 +102,9 @@ impl SettingsView {
 
                 let (info_rect, _) = ui.allocate_exact_size(vec2(ui.available_width() - 40.0, 90.0), egui::Sense::hover());
                 ui.painter().rect_filled(info_rect, Rounding::same(12.0), BitChordTheme::SURFACE);
-                ui.painter().rect_stroke(info_rect, Rounding::same(12.0), Stroke::new(1.0, BitChordTheme::GLASS_BORDER));
+                ui.painter().rect_stroke(info_rect, Rounding::same(12.0), Stroke::new(1.0_f32, BitChordTheme::GLASS_BORDER));
 
-                ui.allocate_ui_at_rect(info_rect.shrink(14.0), |child| {
+                ui.allocate_new_ui(egui::UiBuilder::new().max_rect(info_rect.shrink(14.0)), |child| {
                     child.label(
                         RichText::new("BitChord Rust • Built for Arch Linux")
                             .size(14.0)

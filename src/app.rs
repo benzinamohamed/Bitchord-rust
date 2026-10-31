@@ -6,7 +6,7 @@ use crate::ui::{
     PlayerBar, SearchView, SettingsView, Sidebar,
 };
 use crate::ytmusic::YtMusicClient;
-use eframe::egui::{self, CentralPanel, Color32, Margin, SidePanel, Ui};
+use eframe::egui::{self, CentralPanel, Margin, SidePanel};
 use std::sync::{mpsc, Arc, Mutex};
 use tokio::runtime::Handle;
 
@@ -15,8 +15,9 @@ pub enum AppMessage {
     SearchLoaded(SearchResult),
     TrackReady {
         song: Song,
-        bytes: Vec<u8>,
+        url: String,
         stats: AudioQualityStats,
+        user_agent: String,
         lyrics: Vec<LyricLine>,
         up_next: Vec<Song>,
     },
@@ -145,8 +146,8 @@ impl BitChordApp {
         let s = song.clone();
 
         self.tokio_handle.spawn(async move {
-            // Step 1: Resolve stream URL
-            let (url, stats) = match client.get_stream_url(&s.video_id).await {
+            // Step 1: Resolve stream URL with matching UA
+            let (url, stats, user_agent) = match client.get_stream_url(&s.video_id).await {
                 Ok(res) => res,
                 Err(e) => {
                     let _ = tx.send(AppMessage::Error(format!("Failed to stream: {}", e)));
@@ -154,22 +155,7 @@ impl BitChordApp {
                 }
             };
 
-            // Step 2: Download audio stream bytes
-            let bytes = match reqwest::get(&url).await {
-                Ok(resp) => match resp.bytes().await {
-                    Ok(b) => b.to_vec(),
-                    Err(e) => {
-                        let _ = tx.send(AppMessage::Error(format!("Failed to download audio: {}", e)));
-                        return;
-                    }
-                },
-                Err(e) => {
-                    let _ = tx.send(AppMessage::Error(format!("Failed to request stream: {}", e)));
-                    return;
-                }
-            };
-
-            // Step 3: Fetch lyrics (try LRCLIB first, then YouTube Music)
+            // Step 2: Fetch lyrics (try LRCLIB first, then YouTube Music)
             let mut lyrics = Vec::new();
             if let Ok(lrc) = lyrics_engine.fetch_synced_lyrics(&s.title, &s.artist, s.duration_seconds).await {
                 lyrics = lrc;
@@ -177,13 +163,14 @@ impl BitChordApp {
                 lyrics = LyricsEngine::interpolate_plain_lyrics(&plain, s.duration_seconds);
             }
 
-            // Step 4: Fetch Up Next recommendations
+            // Step 3: Fetch Up Next recommendations
             let up_next = client.get_up_next(&s.video_id).await.unwrap_or_default();
 
             let _ = tx.send(AppMessage::TrackReady {
                 song: s,
-                bytes,
+                url,
                 stats,
+                user_agent,
                 lyrics,
                 up_next,
             });
@@ -203,12 +190,13 @@ impl BitChordApp {
                 }
                 AppMessage::TrackReady {
                     song,
-                    bytes,
+                    url,
                     stats,
+                    user_agent,
                     lyrics,
                     up_next,
                 } => {
-                    if let Err(e) = self.player.play_bytes(bytes, song.clone(), stats) {
+                    if let Err(e) = self.player.play_stream(url, song.clone(), stats, user_agent, 0) {
                         eprintln!("[BitChord] Playback error: {}", e);
                     }
                     self.current_lyrics = lyrics;
@@ -239,23 +227,23 @@ impl eframe::App for BitChordApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         self.handle_messages();
 
-        // Repaint continuously if playing or buffering to animate scrubber & lyrics
-        if self.player.status() != crate::models::PlaybackStatus::Stopped {
-            ctx.request_repaint_after(std::time::Duration::from_millis(50));
-        }
+        // Request continuous repaint for smooth scrubber and lyrics updates
+        ctx.request_repaint_after(std::time::Duration::from_millis(60));
 
         let current_song = self.player.current_song();
         let stats = self.player.stats();
-        let repeat_mode = self.queue.lock().unwrap().repeat_mode;
-        let shuffle = self.queue.lock().unwrap().shuffle;
+        let (repeat_mode, shuffle) = {
+            let q = self.queue.lock().unwrap();
+            (q.repeat_mode, q.shuffle)
+        };
         let is_liked = current_song
             .as_ref()
             .map(|s| self.liked_songs.iter().any(|l| l.video_id == s.video_id))
             .unwrap_or(false);
 
-        // 1. Fullscreen Now Playing Overlay
+        // 1. Fullscreen Now Playing Overlay (Apple Music Ambient Glow & Synced Lyrics)
         if self.fullscreen_now_playing {
-            CentralPanel::default()
+            egui::CentralPanel::default()
                 .frame(egui::Frame::none().fill(BitChordTheme::BG_DEEP))
                 .show(ctx, |ui| {
                     let mut on_seek = None;
@@ -274,28 +262,38 @@ impl eframe::App for BitChordApp {
                     if let Some(target_ms) = on_seek {
                         self.player.set_elapsed_ms(target_ms);
                     }
-                    if on_close {
+                    if on_close || ctx.input(|i| i.key_pressed(egui::Key::Escape)) {
                         self.fullscreen_now_playing = false;
                     }
                 });
             return;
         }
 
-        // 2. Navigation Sidebar
+        // 2. Navigation Sidebar (Apple Music styled 240px width)
         SidePanel::left("bitchord_sidebar")
             .resizable(false)
-            .exact_width(210.0)
-            .frame(egui::Frame::none().fill(BitChordTheme::BG_DEEP).inner_margin(Margin::same(0.0)))
+            .exact_width(240.0)
+            .frame(egui::Frame::none().fill(BitChordTheme::BG_SIDEBAR).inner_margin(Margin::same(0.0)))
             .show(ctx, |ui| {
                 let queue_len = self.queue.lock().unwrap().tracks.len();
-                Sidebar::show(ui, &mut self.current_tab, queue_len);
+                let mut trigger_search = false;
+                Sidebar::show(
+                    ui,
+                    &mut self.current_tab,
+                    &mut self.search_query,
+                    &mut trigger_search,
+                    queue_len,
+                );
+                if trigger_search {
+                    self.trigger_search();
+                }
             });
 
-        // 3. Bottom Player Bar
+        // 3. Bottom Player Bar (Apple Music Floating Glass Pill)
         egui::TopBottomPanel::bottom("bitchord_player_bar")
             .resizable(false)
-            .exact_height(90.0)
-            .frame(egui::Frame::none().fill(BitChordTheme::BG_MAIN))
+            .exact_height(78.0)
+            .frame(egui::Frame::none().fill(BitChordTheme::BG_MAIN).inner_margin(Margin::symmetric(0.0, 4.0)))
             .show(ctx, |ui| {
                 let action = PlayerBar::show(
                     ui,

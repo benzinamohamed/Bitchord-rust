@@ -1,7 +1,7 @@
 use crate::models::Song;
 use crate::ui::theme::BitChordTheme;
 use egui::{
-    vec2, Align2, Color32, FontId, RichText, Rounding, ScrollArea, Sense, Ui,
+    vec2, Align2, FontId, RichText, Rounding, ScrollArea, Sense, Ui,
 };
 
 pub struct LibraryView;

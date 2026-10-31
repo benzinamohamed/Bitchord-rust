@@ -127,7 +127,7 @@ fn classify_and_add_list_item(item: &Value, result: &mut SearchResult) {
         }
 
         // Search for artist run
-        for (i, &txt) in texts.iter().enumerate() {
+        for (_i, &txt) in texts.iter().enumerate() {
             if txt == " • " || txt == "Song" || txt == "Video" || txt == "Artist" || txt == "Album" || txt == "Single" {
                 continue;
             }

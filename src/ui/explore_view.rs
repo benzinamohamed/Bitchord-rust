@@ -1,6 +1,6 @@
 use crate::ui::theme::BitChordTheme;
 use egui::{
-    vec2, Align2, Color32, FontId, Rect, RichText, Rounding, ScrollArea, Sense, Stroke, Ui,
+    vec2, Align2, Color32, FontId, RichText, Rounding, ScrollArea, Sense, Stroke, Ui,
 };
 
 pub struct ExploreView;
@@ -109,7 +109,7 @@ impl ExploreView {
                         ui.painter().rect_stroke(
                             rect,
                             Rounding::same(14.0),
-                            Stroke::new(1.0, BitChordTheme::GLASS_BORDER),
+                            Stroke::new(1.0_f32, BitChordTheme::GLASS_BORDER),
                         );
 
                         // Icon in top right

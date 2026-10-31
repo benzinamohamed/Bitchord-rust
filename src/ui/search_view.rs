@@ -52,7 +52,7 @@ impl SearchView {
                         vec2(search_bar_width - 60.0, 30.0),
                     );
                     let mut edit_lost_focus = false;
-                    ui.allocate_ui_at_rect(edit_rect, |child| {
+                    ui.allocate_new_ui(egui::UiBuilder::new().max_rect(edit_rect), |child| {
                         let edit = TextEdit::singleline(search_query)
                             .hint_text("Search songs, artists, albums...")
                             .text_color(BitChordTheme::TEXT_PRIMARY)
@@ -160,7 +160,7 @@ impl SearchView {
                     ui.painter().rect_stroke(
                         card_rect,
                         Rounding::same(14.0),
-                        Stroke::new(1.0, BitChordTheme::GLASS_BORDER),
+                        Stroke::new(1.0_f32, BitChordTheme::GLASS_BORDER),
                     );
 
                     // Album Art Box

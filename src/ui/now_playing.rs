@@ -2,8 +2,8 @@ use crate::models::{AudioQualityStats, LyricLine, Song};
 use crate::player::AudioPlayer;
 use crate::ui::theme::BitChordTheme;
 use egui::{
-    vec2, Align, Align2, Color32, FontId, Layout, Rect, RichText, Rounding, ScrollArea, Sense,
-    Stroke, Ui,
+    vec2, Align, Align2, Color32, FontId, Layout, RichText, Rounding, ScrollArea, Sense, Stroke,
+    Ui,
 };
 
 pub struct NowPlayingView;
@@ -20,35 +20,36 @@ impl NowPlayingView {
     ) {
         let full_rect = ui.available_rect_before_wrap();
 
-        // 1. Draw Ambient Gradient Backdrop
+        // 1. Draw Ambient Dynamic Mesh Backdrop
         ui.painter().rect_filled(full_rect, Rounding::ZERO, BitChordTheme::BG_DEEP);
 
-        // Ambient radial color glow behind album art
+        // Ambient radial color glows inspired by Apple Music
         ui.painter().circle_filled(
-            full_rect.left_center() + vec2(150.0, 0.0),
-            240.0,
-            Color32::from_rgba_unmultiplied(0, 210, 255, 14),
+            full_rect.left_center() + vec2(180.0, -40.0),
+            280.0,
+            Color32::from_rgba_unmultiplied(250, 45, 72, 22),
         );
         ui.painter().circle_filled(
-            full_rect.center(),
-            300.0,
-            Color32::from_rgba_unmultiplied(175, 82, 222, 10),
+            full_rect.right_center() + vec2(-180.0, 60.0),
+            320.0,
+            Color32::from_rgba_unmultiplied(0, 210, 255, 18),
         );
 
-        // 2. Top Bar: Back/Close button & Hi-Res header
+        // 2. Top Bar: Header & Close Button
         ui.horizontal(|ui| {
-            ui.add_space(24.0);
+            ui.add_space(26.0);
             ui.label(
-                RichText::new("Now Playing")
-                    .size(13.0)
+                RichText::new("BitChord • Now Playing")
+                    .size(13.5)
+                    .strong()
                     .color(BitChordTheme::TEXT_MUTED),
             );
 
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                ui.add_space(24.0);
+                ui.add_space(26.0);
                 if ui
                     .add(egui::Button::new(RichText::new("✕").size(18.0).color(Color32::WHITE)).frame(false))
-                    .on_hover_text("Close Now Playing")
+                    .on_hover_text("Close (Esc)")
                     .clicked()
                 {
                     *on_close = true;
@@ -56,52 +57,58 @@ impl NowPlayingView {
             });
         });
 
-        ui.add_space(20.0);
+        ui.add_space(14.0);
 
-        // 3. Main Split View: Left (Artwork + Info), Right (Synced Lyrics)
+        // 3. Split Layout: Left (Artwork + Info), Right (Apple Music Synced Lyrics)
         ui.horizontal(|ui| {
-            let half_width = ui.available_width() * 0.44;
+            let left_width = (ui.available_width() * 0.45).clamp(280.0, 460.0);
 
-            // Left Side: Massive Artwork Card & Track Details
-            ui.allocate_ui(vec2(half_width, ui.available_height() - 20.0), |ui| {
+            // Left Side: Artwork & Nerd Stats
+            ui.allocate_ui(vec2(left_width, ui.available_height() - 20.0), |ui| {
                 ui.vertical_centered(|ui| {
                     ui.add_space(20.0);
 
                     // Large Album Artwork Squircle
-                    let art_size = (ui.available_width() * 0.75).clamp(200.0, 360.0);
+                    let art_size = (ui.available_width() * 0.78).clamp(200.0, 360.0);
                     let (art_rect, _) = ui.allocate_exact_size(vec2(art_size, art_size), Sense::hover());
 
-                    // Ambient glow under album
-                    let glow_rect = art_rect.expand(8.0);
+                    // Elevation glow
                     ui.painter().rect_filled(
-                        glow_rect,
-                        Rounding::same(24.0),
-                        Color32::from_rgba_unmultiplied(0, 210, 255, 20),
+                        art_rect.expand(6.0),
+                        Rounding::same(20.0),
+                        Color32::from_rgba_unmultiplied(250, 45, 72, 16),
                     );
 
-                    // Artwork Body
                     ui.painter().rect_filled(
                         art_rect,
-                        Rounding::same(20.0),
+                        Rounding::same(16.0),
                         BitChordTheme::SURFACE_ACTIVE,
                     );
                     ui.painter().rect_stroke(
                         art_rect,
-                        Rounding::same(20.0),
-                        Stroke::new(1.0, Color32::from_rgba_unmultiplied(255, 255, 255, 40)),
+                        Rounding::same(16.0),
+                        Stroke::new(1.0_f32, BitChordTheme::GLASS_BORDER),
                     );
 
-                    ui.painter().text(
-                        art_rect.center(),
-                        Align2::CENTER_CENTER,
-                        "🎵",
-                        FontId::proportional(80.0),
-                        BitChordTheme::ACCENT_CYAN,
-                    );
+                    if let Some(s) = song {
+                        if let Some(thumb) = &s.thumbnail_url {
+                            ui.allocate_new_ui(egui::UiBuilder::new().max_rect(art_rect), |child| {
+                                child.add(egui::Image::new(thumb).rounding(Rounding::same(16.0)));
+                            });
+                        } else {
+                            ui.painter().text(
+                                art_rect.center(),
+                                Align2::CENTER_CENTER,
+                                "🎵",
+                                FontId::proportional(72.0),
+                                BitChordTheme::KEY_RED,
+                            );
+                        }
+                    }
 
-                    ui.add_space(28.0);
+                    ui.add_space(24.0);
 
-                    // Song Title & Artist
+                    // Title & Artist
                     if let Some(s) = song {
                         ui.label(
                             RichText::new(&s.title)
@@ -117,54 +124,54 @@ impl NowPlayingView {
                         );
                     }
 
-                    ui.add_space(20.0);
+                    ui.add_space(18.0);
 
-                    // Stats for Nerds Pill
-                    let stats_pill = format!(
+                    // Stats for Nerds Badge
+                    let nerd_pill = format!(
                         "{} • {} kHz • {} • BitChord Hi-Res",
                         stats.codec,
                         stats.sample_rate_hz / 1000,
                         stats.bit_depth
                     );
-                    let (pill_rect, _) = ui.allocate_exact_size(vec2(280.0, 26.0), Sense::hover());
+                    let (pill_rect, _) = ui.allocate_exact_size(vec2(280.0, 28.0), Sense::hover());
                     ui.painter().rect_filled(
                         pill_rect,
-                        Rounding::same(13.0),
+                        Rounding::same(14.0),
                         BitChordTheme::SURFACE_HOVER,
                     );
                     ui.painter().rect_stroke(
                         pill_rect,
-                        Rounding::same(13.0),
-                        Stroke::new(1.0, BitChordTheme::GLASS_BORDER),
+                        Rounding::same(14.0),
+                        Stroke::new(1.0_f32, BitChordTheme::GLASS_BORDER),
                     );
                     ui.painter().text(
                         pill_rect.center(),
                         Align2::CENTER_CENTER,
-                        &stats_pill,
+                        &nerd_pill,
                         FontId::proportional(11.0),
-                        BitChordTheme::ACCENT_CYAN,
+                        BitChordTheme::KEY_RED,
                     );
                 });
             });
 
-            ui.add_space(20.0);
+            ui.add_space(16.0);
             ui.separator();
-            ui.add_space(20.0);
+            ui.add_space(16.0);
 
-            // Right Side: Apple Music Real-Time Synced Lyrics
+            // Right Side: Synchronized Karaoke Lyrics
             let elapsed_ms = player.elapsed_ms();
             ui.vertical(|ui| {
                 ui.horizontal(|ui| {
                     ui.label(
                         RichText::new("Lyrics")
-                            .size(14.0)
+                            .size(15.0)
                             .strong()
                             .color(BitChordTheme::TEXT_MUTED),
                     );
                     ui.label(
-                        RichText::new("• Synced")
-                            .size(11.0)
-                            .color(BitChordTheme::ACCENT_CYAN),
+                        RichText::new("• Real-Time Synced")
+                            .size(11.5)
+                            .color(BitChordTheme::KEY_RED),
                     );
                 });
 
@@ -172,15 +179,14 @@ impl NowPlayingView {
 
                 if lyrics.is_empty() {
                     ui.vertical_centered(|ui| {
-                        ui.add_space(60.0);
+                        ui.add_space(80.0);
                         ui.label(
-                            RichText::new("No lyrics available for this track")
-                                .size(15.0)
+                            RichText::new("Fetching synchronized lyrics from LRCLIB...")
+                                .size(14.5)
                                 .color(BitChordTheme::TEXT_MUTED),
                         );
                     });
                 } else {
-                    // Find active lyric index
                     let active_idx = lyrics
                         .iter()
                         .rposition(|line| elapsed_ms >= line.start_ms)
@@ -189,7 +195,7 @@ impl NowPlayingView {
                     ScrollArea::vertical()
                         .auto_shrink([false; 2])
                         .show(ui, |ui| {
-                            ui.add_space(30.0);
+                            ui.add_space(40.0);
                             for (idx, line) in lyrics.iter().enumerate() {
                                 let is_active = idx == active_idx;
 
@@ -199,7 +205,7 @@ impl NowPlayingView {
                                     BitChordTheme::LYRIC_INACTIVE
                                 };
 
-                                let font_size = if is_active { 20.0 } else { 16.0 };
+                                let font_size = if is_active { 22.0 } else { 16.5 };
 
                                 let mut rich = RichText::new(&line.text)
                                     .size(font_size)
@@ -217,13 +223,12 @@ impl NowPlayingView {
                                 }
 
                                 if is_active {
-                                    // Smoothly scroll active line into middle
                                     resp.scroll_to_me(Some(Align::Center));
                                 }
 
-                                ui.add_space(16.0);
+                                ui.add_space(18.0);
                             }
-                            ui.add_space(120.0);
+                            ui.add_space(140.0);
                         });
                 }
             });
