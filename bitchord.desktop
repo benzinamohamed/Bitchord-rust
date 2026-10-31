@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=BitChord
+Comment=Aesthetic YouTube Music Desktop Client
+Exec=bitchord
+Icon=bitchord
+Terminal=false
+Type=Application
+Categories=AudioVideo;Audio;Player;Music;
+Keywords=music;player;youtube;streaming;lossless;lyrics;
+StartupNotify=true
