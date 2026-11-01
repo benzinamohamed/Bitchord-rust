@@ -231,8 +231,25 @@ pub fn native_resume(state: State<'_, AppState>) {
 }
 
 #[tauri::command]
-pub fn native_seek(state: State<'_, AppState>, seconds: u64) {
-    state.player.seek_to_sec(seconds);
+pub async fn native_seek(state: State<'_, AppState>, seconds: u64) -> Result<(), String> {
+    eprintln!("[TAURI SEEK] Seeking to {} seconds", seconds);
+    if let Some(song) = state.player.current_song() {
+        let video_id = song.video_id.clone();
+        if let (Some(url), Some(ua), stats) = (
+            state.player.current_stream_url(),
+            state.player.current_user_agent(),
+            state.player.stats(),
+        ) {
+            let res = state.player.play_stream(url, song.clone(), stats, ua, seconds);
+            if res.is_ok() {
+                return Ok(());
+            }
+        }
+        if let Ok((stream_url, stats, user_agent)) = state.ytmusic.get_stream_url(&video_id).await {
+            state.player.play_stream(stream_url, song, stats, user_agent, seconds)?;
+        }
+    }
+    Ok(())
 }
 
 #[tauri::command]

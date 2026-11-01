@@ -11,7 +11,7 @@ pub struct AudioPlayer {
     stream_handle: Option<OutputStreamHandle>,
     sink: Arc<Mutex<Option<Arc<Sink>>>>,
     active_process: Arc<Mutex<Option<Child>>>,
-    stream_abort: Arc<AtomicBool>,
+    active_abort: Arc<Mutex<Option<Arc<AtomicBool>>>>,
     status: Arc<Mutex<PlaybackStatus>>,
     volume: Arc<Mutex<f32>>,
     current_song: Arc<Mutex<Option<Song>>>,
@@ -40,7 +40,7 @@ impl AudioPlayer {
             stream_handle,
             sink: Arc::new(Mutex::new(None)),
             active_process: Arc::new(Mutex::new(None)),
-            stream_abort: Arc::new(AtomicBool::new(false)),
+            active_abort: Arc::new(Mutex::new(None)),
             status: Arc::new(Mutex::new(PlaybackStatus::Stopped)),
             volume: Arc::new(Mutex::new(0.8)),
             current_song: Arc::new(Mutex::new(None)),
@@ -87,6 +87,9 @@ impl AudioPlayer {
 
         // Spawn FFmpeg to stream and decode directly with exact matching User-Agent
         let mut cmd = Command::new("ffmpeg");
+        if start_sec > 0 {
+            cmd.args(["-ss", &start_sec.to_string()]);
+        }
         let header_arg = format!("User-Agent: {}\r\n", user_agent);
         cmd.args([
             "-reconnect",
@@ -99,11 +102,6 @@ impl AudioPlayer {
             &header_arg,
             "-i",
             &url,
-        ]);
-        if start_sec > 0 {
-            cmd.args(["-ss", &start_sec.to_string()]);
-        }
-        cmd.args([
             "-f",
             "s16le",
             "-ac",
@@ -126,9 +124,10 @@ impl AudioPlayer {
         };
 
         *self.active_process.lock().unwrap() = Some(child);
-        self.stream_abort.store(false, Ordering::SeqCst);
+        let stream_abort = Arc::new(AtomicBool::new(false));
+        *self.active_abort.lock().unwrap() = Some(stream_abort.clone());
 
-        let abort_flag = self.stream_abort.clone();
+        let abort_flag = stream_abort.clone();
         let status_arc = self.status.clone();
         let start_arc = self.playback_start.clone();
 
@@ -167,7 +166,9 @@ impl AudioPlayer {
 
             if !abort_flag.load(Ordering::SeqCst) {
                 new_sink.sleep_until_end();
-                *status_arc.lock().unwrap() = PlaybackStatus::Completed;
+                if !abort_flag.load(Ordering::SeqCst) {
+                    *status_arc.lock().unwrap() = PlaybackStatus::Completed;
+                }
             }
         });
 
@@ -207,7 +208,9 @@ impl AudioPlayer {
     }
 
     pub fn stop(&self) {
-        self.stream_abort.store(true, Ordering::SeqCst);
+        if let Some(old_abort) = self.active_abort.lock().unwrap().take() {
+            old_abort.store(true, Ordering::SeqCst);
+        }
         if let Some(mut child) = self.active_process.lock().unwrap().take() {
             let _ = child.kill();
         }
@@ -217,6 +220,14 @@ impl AudioPlayer {
         *self.status.lock().unwrap() = PlaybackStatus::Stopped;
         *self.playback_start.lock().unwrap() = None;
         *self.elapsed_offset.lock().unwrap() = Duration::ZERO;
+    }
+
+    pub fn current_stream_url(&self) -> Option<String> {
+        self.current_stream_url.lock().unwrap().clone()
+    }
+
+    pub fn current_user_agent(&self) -> Option<String> {
+        self.current_user_agent.lock().unwrap().clone()
     }
 
     pub fn seek_to_sec(&self, sec: u64) {
