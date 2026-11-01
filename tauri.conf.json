@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "identifier": "com.music.bitchord",
   "build": {
-    "frontendDist": "../BitChord/web/app/dist"
+    "frontendDist": "web/app/dist"
   },
   "app": {
     "withGlobalTauri": true,
