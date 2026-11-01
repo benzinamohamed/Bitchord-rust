@@ -1,0 +1,11 @@
+[Desktop Entry]
+Name=BitChord Rust
+GenericName=Music Player
+Comment=Aesthetic YouTube Music Desktop Client (Rust)
+Exec=bitchord-rust
+Icon=bitchord-rust
+Terminal=false
+Type=Application
+Categories=AudioVideo;Audio;Player;Music;
+Keywords=music;player;youtube;streaming;lossless;lyrics;bitchord;rust;
+StartupNotify=true
