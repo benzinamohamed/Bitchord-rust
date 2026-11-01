@@ -249,6 +249,7 @@ pub fn native_status(state: State<'_, AppState>) -> PlayerStatusResponse {
         PlaybackStatus::Paused => "paused",
         PlaybackStatus::Buffering => "buffering",
         PlaybackStatus::Stopped => "idle",
+        PlaybackStatus::Completed => "completed",
     };
 
     PlayerStatusResponse {

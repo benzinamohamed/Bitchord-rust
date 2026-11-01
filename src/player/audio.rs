@@ -87,9 +87,6 @@ impl AudioPlayer {
 
         // Spawn FFmpeg to stream and decode directly with exact matching User-Agent
         let mut cmd = Command::new("ffmpeg");
-        if start_sec > 0 {
-            cmd.args(["-ss", &start_sec.to_string()]);
-        }
         let header_arg = format!("User-Agent: {}\r\n", user_agent);
         cmd.args([
             "-reconnect",
@@ -102,6 +99,11 @@ impl AudioPlayer {
             &header_arg,
             "-i",
             &url,
+        ]);
+        if start_sec > 0 {
+            cmd.args(["-ss", &start_sec.to_string()]);
+        }
+        cmd.args([
             "-f",
             "s16le",
             "-ac",
@@ -165,7 +167,7 @@ impl AudioPlayer {
 
             if !abort_flag.load(Ordering::SeqCst) {
                 new_sink.sleep_until_end();
-                *status_arc.lock().unwrap() = PlaybackStatus::Stopped;
+                *status_arc.lock().unwrap() = PlaybackStatus::Completed;
             }
         });
 
