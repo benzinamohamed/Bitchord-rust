@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 authors = ["BitChord Rust Team"]
 description = "Aesthetic YouTube Music Desktop Client for Arch Linux"
+license = "GPL-3.0"
 
 [dependencies]
 tauri = { version = "2", features = [] }
