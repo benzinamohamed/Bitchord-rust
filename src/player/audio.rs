@@ -8,7 +8,6 @@ use std::time::{Duration, Instant};
 
 #[derive(Clone)]
 pub struct AudioPlayer {
-    _stream: Arc<Mutex<Option<OutputStream>>>,
     stream_handle: Option<OutputStreamHandle>,
     sink: Arc<Mutex<Option<Arc<Sink>>>>,
     active_process: Arc<Mutex<Option<Child>>>,
@@ -25,16 +24,19 @@ pub struct AudioPlayer {
 
 impl AudioPlayer {
     pub fn new() -> Self {
-        let (stream, stream_handle) = match OutputStream::try_default() {
-            Ok((s, h)) => (Arc::new(Mutex::new(Some(s))), Some(h)),
+        let stream_handle = match OutputStream::try_default() {
+            Ok((s, h)) => {
+                // Keep output stream alive for the entire process lifetime
+                Box::leak(Box::new(s));
+                Some(h)
+            }
             Err(e) => {
                 eprintln!("[BitChord] Audio device warning: {}", e);
-                (Arc::new(Mutex::new(None)), None)
+                None
             }
         };
 
         Self {
-            _stream: stream,
             stream_handle,
             sink: Arc::new(Mutex::new(None)),
             active_process: Arc::new(Mutex::new(None)),

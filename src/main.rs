@@ -1,59 +1,49 @@
-mod app;
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
+mod commands;
 mod lyrics;
 mod models;
 mod player;
-mod ui;
 mod ytmusic;
 
-use app::BitChordApp;
-use eframe::egui::Vec2;
+use commands::*;
+use lyrics::lrclib::LyricsEngine;
+use player::audio::AudioPlayer;
+use std::sync::Arc;
+use ytmusic::client::YtMusicClient;
 
-fn main() -> Result<(), eframe::Error> {
-    // Initialize tokio async runtime for background HTTP & streaming
-    let runtime = tokio::runtime::Builder::new_multi_thread()
-        .enable_all()
+fn main() {
+    let player = Arc::new(AudioPlayer::new());
+    let ytmusic = Arc::new(YtMusicClient::new());
+    let lyrics = Arc::new(LyricsEngine::new());
+    let http = reqwest::Client::builder()
         .build()
-        .expect("Failed to initialize tokio runtime");
+        .unwrap_or_else(|_| reqwest::Client::new());
 
-    let handle = runtime.handle().clone();
-
-    let options = eframe::NativeOptions {
-        viewport: eframe::egui::ViewportBuilder::default()
-            .with_title("BitChord — Apple Music Client for Arch Linux")
-            .with_inner_size(Vec2::new(1200.0, 800.0))
-            .with_min_inner_size(Vec2::new(900.0, 600.0))
-            .with_active(true),
-        ..Default::default()
+    let state = AppState {
+        player,
+        ytmusic,
+        lyrics,
+        http,
     };
 
-    eframe::run_native(
-        "bitchord",
-        options,
-        Box::new(move |cc| {
-            // Enable egui image loader for remote artwork thumbnails
-            egui_extras::install_image_loaders(&cc.egui_ctx);
-
-            // Install Inter font for Apple Music typography
-            let font_paths = [
-                "/home/hamoda/.local/share/fonts/Inter/extras/ttf/Inter-Regular.ttf",
-                "/usr/share/fonts/inter/Inter-Regular.ttf",
-            ];
-            for path in font_paths {
-                if let Ok(font_bytes) = std::fs::read(path) {
-                    let mut fonts = egui::FontDefinitions::default();
-                    fonts.font_data.insert(
-                        "Inter".to_owned(),
-                        egui::FontData::from_owned(font_bytes),
-                    );
-                    if let Some(family) = fonts.families.get_mut(&egui::FontFamily::Proportional) {
-                        family.insert(0, "Inter".to_owned());
-                    }
-                    cc.egui_ctx.set_fonts(fonts);
-                    break;
-                }
-            }
-
-            Ok(Box::new(BitChordApp::new(cc, handle)))
-        }),
-    )
+    tauri::Builder::default()
+        .manage(state)
+        .invoke_handler(tauri::generate_handler![
+            log_from_js,
+            bridge_call,
+            native_play,
+            native_toggle_play,
+            native_pause,
+            native_resume,
+            native_seek,
+            native_set_volume,
+            native_status,
+            native_search,
+            native_home,
+            native_up_next,
+            native_lyrics,
+        ])
+        .run(tauri::generate_context!())
+        .expect("error while running bitchord application");
 }
