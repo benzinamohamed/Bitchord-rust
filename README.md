@@ -21,7 +21,14 @@
 
 ## 🌟 Overview
 
-**BitChord Rust** is a desktop recreation of the beloved [BitChord (Kotlin)](https://github.com/kushagrasinghx/BitChord) music player. It fuses **Apple Music's liquid glassmorphic design** and **Spotify's effortless desktop usability** with the raw speed, minimal memory footprint, and bit-perfect audio delivery of **Rust**.
+> [!NOTE]
+> **Lineage & Motivation**: The original [BitChord](https://github.com/kushagrasinghx/BitChord) is a Kotlin & Compose Multiplatform project. While great on mobile, running a JVM desktop application on Linux led to heavy memory overhead (~600MB+ RAM), slower cold startup, and occasional garbage collection stutter.
+>
+> **BitChord Rust** is a ground-up native rewrite built with **Rust and Tauri**. Ditching the JVM runtime in favor of compiled native code brings instant cold starts (~0.2s), cuts memory usage by more than half (~240MB RSS), and routes audio directly through Linux PipeWire / ALSA.
+>
+> 🔗 **Original Kotlin Repository**: [kushagrasinghx/BitChord](https://github.com/kushagrasinghx/BitChord)
+
+**BitChord Rust** fuses **Apple Music's liquid glassmorphic design** and **Spotify's effortless desktop usability** with the raw speed, minimal memory footprint, and bit-perfect audio delivery of **Rust**.
 
 Unlike heavy Electron apps or memory-intensive JVM mobile ports, **BitChord Rust** runs natively on Linux as a standalone binary utilizing WebKitGTK and PipeWire, using up to **50% less RAM** and launching in under **200 milliseconds**.
 
@@ -147,6 +154,6 @@ Bitchord-rust/
 
 ## 📄 License & Acknowledgments
 
+- **Original Project**: [BitChord (Kotlin)](https://github.com/kushagrasinghx/BitChord) by [Kushagra Singh](https://github.com/kushagrasinghx) — thank you to Kushagra for creating the original concept and design!
 - **License**: GNU General Public License v3.0 ([GPL-3.0](LICENSE))
-- **Original Inspiration**: [BitChord by Kushagra Singh](https://github.com/kushagrasinghx/BitChord)
 - **Lyrics Engine**: Integrated with [LRCLIB](https://lrclib.net/) and Apple Music Web Components.
